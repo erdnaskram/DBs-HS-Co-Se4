@@ -333,11 +333,6 @@ VALUES ('Normaltarif', 1.00, 'Economy', 925),
 
 
 
-
-
-
-
-
 /* AUFGABE 3 =========================================================================================================*/
 
 /* Korrektur der Datenbank-----------------------------------------------*/
@@ -382,9 +377,51 @@ UPDATE Flughafen
 SET beschreibung = 'Nürnberg'
 WHERE flughafenKennung LIKE 'NUE' ESCAPE '#';
 
-#Tariffaktor durch Tarif ersetzten
+#Flugzeugtypen zu Flugverbindung hinzufügen
+UPDATE wwfmaba.Flugverbindung t
+SET t.FlugzeugTyp_idFlugzeugTyp = 'A340-600'
+WHERE t.flugNummer = 312;
+UPDATE wwfmaba.Flugverbindung t
+SET t.FlugzeugTyp_idFlugzeugTyp = '747-400'
+WHERE t.flugNummer = 929;
+UPDATE wwfmaba.Flugverbindung t
+SET t.FlugzeugTyp_idFlugzeugTyp = 'A321'
+WHERE t.flugNummer = 926;
+UPDATE wwfmaba.Flugverbindung t
+SET t.FlugzeugTyp_idFlugzeugTyp = 'A321'
+WHERE t.flugNummer = 925;
+UPDATE wwfmaba.Flugverbindung t
+SET t.FlugzeugTyp_idFlugzeugTyp = 'CRJ900'
+WHERE t.flugNummer = 310;
+UPDATE wwfmaba.Flugverbindung t
+SET t.FlugzeugTyp_idFlugzeugTyp = '737-300'
+WHERE t.flugNummer = 9488;
+UPDATE wwfmaba.Flugverbindung t
+SET t.FlugzeugTyp_idFlugzeugTyp = '737-300'
+WHERE t.flugNummer = 5210;
+UPDATE wwfmaba.Flugverbindung t
+SET t.FlugzeugTyp_idFlugzeugTyp = '747-400'
+WHERE t.flugNummer = 4210;
+UPDATE wwfmaba.Flugverbindung t
+SET t.FlugzeugTyp_idFlugzeugTyp = '747-400'
+WHERE t.flugNummer = 4711;
+UPDATE wwfmaba.Flugverbindung t
+SET t.FlugzeugTyp_idFlugzeugTyp = '737-300'
+WHERE t.flugNummer = 4756;
+
+#Satelitentelefon einer Maschiene Geben
+INSERT INTO Merkmal (merkmalID, bezeichner)
+VALUES (1, 'Satellitentelefon');
+INSERT INTO Maschine_has_Merkmal (Maschine_kennzeichen, Merkmal_merkmalID)
+VALUES ('D-ABYZ', 1);
+
+#Eine Maschiene definieren die zw 5-10Jahren alt ist
+UPDATE wwfmaba.Maschine t
+    SET t.datumInbetriebnahme = '2015-04-20'
+    WHERE t.kennzeichen LIKE 'D-ABYZ' ESCAPE '#';
+
 Alter TABLE Tarif
-    ADD preis DECIMAL(5,2);
+    ADD preis DECIMAL(5, 2);
 
 # UPDATE Tarif
 #     LEFT JOIN Buchungsklasse B on Tarif.Buchungsklasse_idBuchungsklasse = B.buchungsklasse
@@ -396,9 +433,9 @@ Alter TABLE Tarif
 /* Bearbeitung der Aufgaben----------------------------------------------*/
 
 #TEILAUFGABE (1)
-SELECT flughafenKennung, zeitzone
+SELECT flughafenKennung, beschreibung, zeitzone
 FROM Flughafen
-ORDER BY flughafenKennung;
+ORDER BY beschreibung;
 
 #TEILAUFGABE (2)
 SELECT kennzeichen
@@ -430,70 +467,74 @@ FROM FlugzeugTyp t
 GROUP BY hersteller
 ORDER BY hersteller;
 
-#TEILAUFGABE (6)------------------------------------------------------------------
+#TEILAUFGABE (6)
 SELECT hersteller, flugzeugTyp
 FROM FlugzeugTyp
-    JOIN Flugverbindung F on FlugzeugTyp.flugzeugTyp = F.FlugzeugTyp_idFlugzeugTyp
-    GROUP BY hersteller, flugzeugTyp
-    HAVING count(hersteller) = 1
-    order by hersteller, flugzeugTyp;
+         LEFT JOIN Flugverbindung F on FlugzeugTyp.flugzeugTyp = F.FlugzeugTyp_idFlugzeugTyp
+GROUP BY hersteller, flugzeugTyp
+HAVING count(hersteller) = 1
+order by hersteller, flugzeugTyp;
 
-#TEILAUFGABE (7)------------------------------------------------------------------
-# SELECT  hersteller, flugzeugTyp, COUNT(SELECT anzahl FROM )
-#   FROM FlugzeugTyp f
-# # 	WHERE COUNT() > 150
-#   GROUP BY hersteller, flugzeugTyp
-#   ORDER BY hersteller, flugzeugTyp;
+#TEILAUFGABE (7)
+SELECT hersteller, flugzeugTyp, SUM(B.anzahl) AS Sitzplätze
+FROM FlugzeugTyp f
+         LEFT JOIN Buchungsklasse B on f.flugzeugTyp = B.FlugzeugTyp_idFlugzeugTyp
+GROUP BY hersteller, flugzeugTyp
+HAVING Sitzplätze > 150
+ORDER BY hersteller, flugzeugTyp;
 
 #TEILAUFGABE (8)
-SELECT flugNummer, startFlughafen, endFlughafen,  MIN(Preis) AS Mindestpreis
-	FROM Flugverbindung fv
-		left JOIN FlugzeugTyp ft ON fv.FlugzeugTyp_idFlugzeugTyp = ft.flugzeugTyp
-        left JOIN Buchungsklasse b ON ft.flugzeugTyp = b.FlugzeugTyp_idFlugzeugTyp
-    GROUP BY flugNummer, startFlughafen, endFlughafen
+SELECT flugNummer, startFlughafen, endFlughafen, MIN(Preis) AS Mindestpreis
+FROM Flugverbindung fv
+         left JOIN FlugzeugTyp ft ON fv.FlugzeugTyp_idFlugzeugTyp = ft.flugzeugTyp
+         left JOIN Buchungsklasse b ON ft.flugzeugTyp = b.FlugzeugTyp_idFlugzeugTyp
+GROUP BY flugNummer, startFlughafen, endFlughafen
 # 	HAVING MIN(Preis) > 250
- ORDER BY startFlughafen, endFlughafen, flugNummer, Mindestpreis;
-
+ORDER BY startFlughafen, endFlughafen, flugNummer, Mindestpreis;
 
 
 #TEILAUFGABE (9)
 SELECT hersteller, flugzeugTyp, kennzeichen
 FROM Maschine
-    LEFT JOIN FlugzeugTyp FT on FT.flugzeugTyp = Maschine.FlugzeugTyp_idFlugzeugTyp
+         LEFT JOIN FlugzeugTyp FT on FT.flugzeugTyp = Maschine.FlugzeugTyp_idFlugzeugTyp
 WHERE YEAR(CURDATE()) - YEAR(datumInbetriebnahme) >= 5
   AND YEAR(CURDATE()) - YEAR(datumInbetriebnahme) <= 10
 ORDER BY kennzeichen;
 
 
 #TEILAUFGABE (10)
-SELECT flughafenKennung
+SELECT flughafenKennung, beschreibung, SUM(sicherheitsgebür + flughafenSteuer) AS Zusatzkosten
 FROM Flughafen
-WHERE Flughafen.sicherheitsgebür + Flughafen.flughafenSteuer =
-      (SELECT MIN(Flughafen.sicherheitsgebür) FROM Flughafen) +
-      (SELECT MIN(Flughafen.flughafenSteuer) FROM Flughafen)
+WHERE sicherheitsgebür + flughafenSteuer =
+      (SELECT MIN(sicherheitsgebür) FROM Flughafen) +
+      (SELECT MIN(flughafenSteuer) FROM Flughafen)
 GROUP BY flughafenKennung;
 
 #TEILAUFGABE (11)
 SELECT hersteller, flugzeugTyp, kennzeichen
-    FROM Maschine M
-        LEFT JOIN FlugzeugTyp FT on FT.flugzeugTyp = M.FlugzeugTyp_idFlugzeugTyp
-        LEFT JOIN Maschine_has_Merkmal MhM on M.kennzeichen = MhM.Maschine_kennzeichen
-    WHERE MhM.Maschine_kennzeichen IS NULL
-    GROUP BY hersteller, flugzeugTyp, kennzeichen;
+FROM Maschine M
+         LEFT JOIN FlugzeugTyp FT on FT.flugzeugTyp = M.FlugzeugTyp_idFlugzeugTyp
+         LEFT JOIN Maschine_has_Merkmal MhM on M.kennzeichen = MhM.Maschine_kennzeichen
+WHERE MhM.Maschine_kennzeichen IS NULL
+GROUP BY hersteller, flugzeugTyp, kennzeichen;
 
 
 #TEILAUFGABE (12)
-# SELECT flugNummer
-#     FROM Flugverbindung FV, (FHS.flughafenSteuer + FHS.sicherheitsgebür+ FV.Kerosinzuschlag+
-#             T.tarifFaktor * B.Preis) AS Gesamtpreis
-#         LEFT JOIN Flughafen FHS ON FV.startFlughafen = FHS.flughafenKennung
-#         LEFT JOIN Flughafen FHE ON FV.startFlughafen = FHE.flughafenKennung
-#         LEFT JOIN Tarif T ON FV.flugNummer = T.FlugVerbindung_flugNummer
-#         LEFT JOIN Buchungsklasse B on T.Buchungsklasse_idBuchungsklasse = B.buchungsklasse
-#     WHERE (FHS.beschreibung = 'Frankfurt' OR FHS.beschreibung = 'München')
-#         AND B.buchungsklasse = 'Econnomy'
-#         AND T.tarifTyp = 'Normaltarif';
-#
+SELECT flugNummer,
+       SUM(FHS.flughafenSteuer + FHS.sicherheitsgebür + FV.Kerosinzuschlag +
+           T.tarifFaktor * B.Preis) AS Gesamtpreis,
+       buchungsklasse,
+       tarifTyp
+FROM Flugverbindung FV
+         LEFT JOIN Flughafen FHS ON FV.startFlughafen = FHS.flughafenKennung
+         LEFT JOIN Flughafen FHE ON FV.startFlughafen = FHE.flughafenKennung
+         LEFT JOIN Tarif T ON FV.flugNummer = T.FlugVerbindung_flugNummer
+         LEFT JOIN Buchungsklasse B on T.Buchungsklasse_idBuchungsklasse = B.buchungsklasse
+WHERE (FHS.beschreibung = 'Frankfurt' OR FHS.beschreibung = 'München')
+  AND B.buchungsklasse = 'Economy'
+  AND T.tarifTyp = 'Normaltarif'
+GROUP BY flugNummer, buchungsklasse, tarifTyp;
+
 
 
 #TEILAUFGABE (13)
@@ -503,10 +544,10 @@ denden Flugverbindungen, geordnet nach Flughafen-Kürzel (Achtung: Die Zahl 0 mu
 auch als „0“ angezeigt werden und nicht als „NULL“).
 */
 SELECT flughafenKennung, COUNT(fStart.startFlughafen) AS Abflug, COUNT(fEnd.endFlughafen) AS Ankunft
-    FROM Flughafen f
-        LEFT JOIN Flugverbindung fStart ON fStart.startFlughafen = f.flughafenKennung
-        LEFT JOIN Flugverbindung fEnd ON fEnd.endFlughafen = f.flughafenKennung
-    GROUP BY flughafenKennung;
+FROM Flughafen f
+         LEFT JOIN Flugverbindung fStart ON fStart.startFlughafen = f.flughafenKennung
+         LEFT JOIN Flugverbindung fEnd ON fEnd.endFlughafen = f.flughafenKennung
+GROUP BY flughafenKennung;
 
 #TEILAUFGABE (14)
 /*
@@ -515,11 +556,12 @@ benden Betriebsstunden bis zur maximal zulässigen Zahl von Betriebsstunden des 
 gehörigen Flugzeugtyps.
 */
 SELECT hersteller, flugzeugTyp, kennzeichen
-    FROM Maschine
-        LEFT JOIN FlugzeugTyp FT on Maschine.FlugzeugTyp_idFlugzeugTyp = FT.flugzeugTyp
-    WHERE maxFlugstunden - betriebsStunden =
-          (SELECT MIN(maxFlugstunden - betriebsStunden) FROM Maschine
-        LEFT JOIN FlugzeugTyp FT on Maschine.FlugzeugTyp_idFlugzeugTyp = FT.flugzeugTyp);
+FROM Maschine
+         LEFT JOIN FlugzeugTyp FT on Maschine.FlugzeugTyp_idFlugzeugTyp = FT.flugzeugTyp
+WHERE maxFlugstunden - betriebsStunden =
+      (SELECT MIN(maxFlugstunden - betriebsStunden)
+       FROM Maschine
+                LEFT JOIN FlugzeugTyp FT on Maschine.FlugzeugTyp_idFlugzeugTyp = FT.flugzeugTyp);
 
 #TEILAUFGABE (15)
 /*
@@ -529,14 +571,15 @@ günstigster Preis; von bzw. nach sind die Bezeichnung der Flughäfen, nicht die
 sortiert zunächst nach von (Bezeichnung), nach (Bezeichnung).
 */
 SELECT FHS.beschreibung AS von, FHE.beschreibung AS nach, Preis, f.FlugzeugTyp_idFlugzeugTyp
-    FROM Flugverbindung f
-        LEFT JOIN Buchungsklasse B on f.FlugzeugTyp_idFlugzeugTyp = B.FlugzeugTyp_idFlugzeugTyp
-        LEFT JOIN Flughafen FHS ON f.startFlughafen = FHS.flughafenKennung
-        LEFT JOIN Flughafen FHE ON f.endFlughafen = FHE.flughafenKennung
-    WHERE Preis = (SELECT MIN(Preis)
-        FROM Flugverbindung
-            LEFT JOIN Buchungsklasse B on Flugverbindung.FlugzeugTyp_idFlugzeugTyp = B.FlugzeugTyp_idFlugzeugTyp)
-    GROUP BY startFlughafen, endFlughafen, Preis, f.FlugzeugTyp_idFlugzeugTyp;
+FROM Flugverbindung f
+         LEFT JOIN Buchungsklasse B on f.FlugzeugTyp_idFlugzeugTyp = B.FlugzeugTyp_idFlugzeugTyp
+         LEFT JOIN Flughafen FHS ON f.startFlughafen = FHS.flughafenKennung
+         LEFT JOIN Flughafen FHE ON f.endFlughafen = FHE.flughafenKennung
+WHERE Preis = (SELECT MIN(Preis)
+               FROM Flugverbindung
+                        LEFT JOIN Buchungsklasse B
+                                  on Flugverbindung.FlugzeugTyp_idFlugzeugTyp = B.FlugzeugTyp_idFlugzeugTyp)
+GROUP BY startFlughafen, endFlughafen, Preis, f.FlugzeugTyp_idFlugzeugTyp;
 
 #TEILAUFGABE (16)
 /*
@@ -545,13 +588,15 @@ flughafen [b], Bezeichnung Ankunftsflughafen [c], Dauer (in Stunden : Minuten : 
 den) [d] geordnet nach b, c (Achtung: Zeitzone ist zu beachten!); recherchieren Sie bzgl.
 Berechnungsmethoden und hilfreichen Funktionen des MySQL-Servers im Internet.
 */
-SELECT flugNummer, FHS.beschreibung AS StartFlughafen, FHE.beschreibung AS EndFlughafen,
-       TIMEDIFF(DATE_ADD(endZeit, INTERVAL FHE.Zeitzone*-1 HOUR),
-                    DATE_ADD(startZeit, INTERVAL FHS.Zeitzone*-1 HOUR)) AS Dauer
-    FROM Flugverbindung f
-        LEFT JOIN Flughafen FHS ON f.startFlughafen = FHS.flughafenKennung
-        LEFT JOIN Flughafen FHE ON f.endFlughafen = FHE.flughafenKennung
-    ORDER BY startFlughafen, endFlughafen;
+SELECT flugNummer,
+       FHS.beschreibung                                               AS StartFlughafen,
+       FHE.beschreibung                                               AS EndFlughafen,
+       TIMEDIFF(DATE_ADD(endZeit, INTERVAL FHE.Zeitzone * -1 HOUR),
+                DATE_ADD(startZeit, INTERVAL FHS.Zeitzone * -1 HOUR)) AS Dauer
+FROM Flugverbindung f
+         LEFT JOIN Flughafen FHS ON f.startFlughafen = FHS.flughafenKennung
+         LEFT JOIN Flughafen FHE ON f.endFlughafen = FHE.flughafenKennung
+ORDER BY startFlughafen, endFlughafen;
 
 
 #TEILAUFGABE (17)
@@ -561,17 +606,17 @@ don-City oder einem dazu benachbarten Flughafen mit Flugnummer [a], Bezeichnung
 Abflugflughafen [b], Bezeichnung Ankunftsflughafen [c], Abflugzeit [d] und Ankunftszeit [e].
 */
 SELECT Flugnummer, FHS.beschreibung as Startflughafen, FHE.beschreibung as Zielflughafen, F.startZeit, F.endZeit
-    FROM Flugverbindung F
-        LEFT JOIN Flughafen FHS ON F.startFlughafen = FHS.flughafenKennung
-        LEFT JOIN Flughafen FHE ON F.endFlughafen = FHE.flughafenKennung
-    WHERE FHS.beschreibung = 'München'
-        AND (FHE.beschreibung = 'London-City'
-            OR (FHE.flughafenKennung IN (
-                SELECT FH.Flughafen_flughafenKennung_Nachbarflughafen
-                FROM Flughafen FH
-                WHERE FH.beschreibung = 'London-City')
-            )
-        );
+FROM Flugverbindung F
+         LEFT JOIN Flughafen FHS ON F.startFlughafen = FHS.flughafenKennung
+         LEFT JOIN Flughafen FHE ON F.endFlughafen = FHE.flughafenKennung
+WHERE FHS.beschreibung = 'München'
+  AND (FHE.beschreibung = 'London-City'
+    OR (FHE.flughafenKennung IN (
+        SELECT FH.Flughafen_flughafenKennung_Nachbarflughafen
+        FROM Flughafen FH
+        WHERE FH.beschreibung = 'London-City')
+           )
+    );
 
 #TEILAUFGABE (18)
 /*
@@ -581,26 +626,40 @@ folgender Tabelle anzeigen. Die Spalten „Abflug“ und „Ankunft“ beinhalte
 gen Ankunfts- bzw. Abflugzeiten (Tipp: Über den SQL-Befehl „UNION“ können Sie die
 Ergebnisse von zwei SELECT-Befehlen in einer Tabelle zusammenfasse
 */
-SELECT FV1.Flugnummer AS Flugnummer1, FHS1.beschreibung as von, FV1.startZeit as Abflug,
-            null as nach_Zwischenstopp, null as Ankunft_Zwischenstopp,
-        null AS Flugnummer2, null as von_Zwischenstopp, null as Abflug_Zwischenstopp,
-            FHE1.beschreibung as nach, FV1.endZeit as Ankunft
-     FROM Flugverbindung FV1
-        LEFT JOIN Flughafen FHS1 ON FV1.startFlughafen = FHS1.flughafenKennung
-        LEFT JOIN Flughafen FHE1 ON FV1.endFlughafen = FHE1.flughafenKennung
-    WHERE FHS1.beschreibung = 'München' AND FHE1.beschreibung = 'San Francisco'
+SELECT FV1.Flugnummer    AS Flugnummer1,
+       FHS1.beschreibung as von,
+       FV1.startZeit     as Abflug,
+       null              as nach_Zwischenstopp,
+       null              as Ankunft_Zwischenstopp,
+       null              AS Flugnummer2,
+       null              as von_Zwischenstopp,
+       null              as Abflug_Zwischenstopp,
+       FHE1.beschreibung as nach,
+       FV1.endZeit       as Ankunft
+FROM Flugverbindung FV1
+         LEFT JOIN Flughafen FHS1 ON FV1.startFlughafen = FHS1.flughafenKennung
+         LEFT JOIN Flughafen FHE1 ON FV1.endFlughafen = FHE1.flughafenKennung
+WHERE FHS1.beschreibung = 'München'
+  AND FHE1.beschreibung = 'San Francisco'
 UNION
-SELECT FV1.Flugnummer AS Flugnummer1, FHS1.beschreibung as von, FV1.startZeit as Abflug,
-            FHE1.beschreibung as nach_Zwischenstopp, FV1.endZeit as Ankunft_Zwischenstopp,
-        FV2.Flugnummer AS Flugnummer2, FHS2.beschreibung as von_Zwischenstopp, FV2.startZeit as Abflug_Zwischenstopp,
-            FHE2.beschreibung as nach, FV2.endZeit as Ankunft
-     FROM Flugverbindung FV1
-        INNER JOIN Flugverbindung FV2 ON FV1.endFlughafen = FV2.startFlughafen
-        LEFT JOIN Flughafen FHS1 ON FV1.startFlughafen = FHS1.flughafenKennung
-        LEFT JOIN Flughafen FHE1 ON FV1.endFlughafen = FHE1.flughafenKennung
-        LEFT JOIN Flughafen FHS2 ON FV2.startFlughafen = FHS2.flughafenKennung
-        LEFT JOIN Flughafen FHE2 ON FV2.endFlughafen = FHE2.flughafenKennung
-     WHERE FHS1.beschreibung = 'München' AND FHE2.beschreibung = 'San Francisco';
+SELECT FV1.Flugnummer    AS Flugnummer1,
+       FHS1.beschreibung as von,
+       FV1.startZeit     as Abflug,
+       FHE1.beschreibung as nach_Zwischenstopp,
+       FV1.endZeit       as Ankunft_Zwischenstopp,
+       FV2.Flugnummer    AS Flugnummer2,
+       FHS2.beschreibung as von_Zwischenstopp,
+       FV2.startZeit     as Abflug_Zwischenstopp,
+       FHE2.beschreibung as nach,
+       FV2.endZeit       as Ankunft
+FROM Flugverbindung FV1
+         INNER JOIN Flugverbindung FV2 ON FV1.endFlughafen = FV2.startFlughafen
+         LEFT JOIN Flughafen FHS1 ON FV1.startFlughafen = FHS1.flughafenKennung
+         LEFT JOIN Flughafen FHE1 ON FV1.endFlughafen = FHE1.flughafenKennung
+         LEFT JOIN Flughafen FHS2 ON FV2.startFlughafen = FHS2.flughafenKennung
+         LEFT JOIN Flughafen FHE2 ON FV2.endFlughafen = FHE2.flughafenKennung
+WHERE FHS1.beschreibung = 'München'
+  AND FHE2.beschreibung = 'San Francisco';
 
 
 /* ENDE Bearbeitung der Aufgaben ----------------------------------------*/
