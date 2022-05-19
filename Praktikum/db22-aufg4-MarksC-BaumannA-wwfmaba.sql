@@ -417,8 +417,8 @@ VALUES ('D-ABYZ', 1);
 
 #Eine Maschiene definieren die zw 5-10Jahren alt ist
 UPDATE wwfmaba.Maschine t
-    SET t.datumInbetriebnahme = '2015-04-20'
-    WHERE t.kennzeichen LIKE 'D-ABYZ' ESCAPE '#';
+SET t.datumInbetriebnahme = '2015-04-20'
+WHERE t.kennzeichen LIKE 'D-ABYZ' ESCAPE '#';
 
 Alter TABLE Tarif
     ADD preis DECIMAL(5, 2);
@@ -432,7 +432,7 @@ Alter TABLE Tarif
 
 /* Bearbeitung der Aufgaben----------------------------------------------*/
 
-#TEILAUFGABE (1)F londomC
+#TEILAUFGABE (1)
 SELECT flughafenKennung, beschreibung, zeitzone
 FROM Flughafen
 ORDER BY beschreibung;
@@ -444,7 +444,7 @@ FROM Maschine,
 WHERE NOT hersteller = 'Boeing'
   AND flugzeugTyp = FlugzeugTyp_idFlugzeugTyp;
 
-#TEILAUFGABE (3)F
+#TEILAUFGABE (3)
 SELECT hersteller, flugzeugTyp, kennzeichen
 FROM FlugzeugTyp t
          INNER JOIN Maschine ma ON t.flugzeugTyp = ma.FlugzeugTyp_idFlugzeugTyp
@@ -452,7 +452,7 @@ FROM FlugzeugTyp t
          INNER JOIN Merkmal me ON h.Merkmal_merkmalID = me.merkmalID
 ORDER BY hersteller, flugzeugTyp, kennzeichen;
 
-#TEILAUFGABE (4)F
+#TEILAUFGABE (4)
 SELECT COUNT(kennzeichen) AS Satellitentelefone
 FROM FlugzeugTyp t
          INNER JOIN Maschine ma ON t.flugzeugTyp = ma.FlugzeugTyp_idFlugzeugTyp
@@ -467,7 +467,7 @@ FROM FlugzeugTyp t
 GROUP BY hersteller
 ORDER BY hersteller;
 
-#TEILAUFGABE (6)F
+#TEILAUFGABE (6)
 SELECT hersteller, flugzeugTyp
 FROM FlugzeugTyp
          LEFT JOIN Flugverbindung F on FlugzeugTyp.flugzeugTyp = F.FlugzeugTyp_idFlugzeugTyp
@@ -475,7 +475,7 @@ GROUP BY hersteller, flugzeugTyp
 HAVING count(hersteller) = 1
 order by hersteller, flugzeugTyp;
 
-#TEILAUFGABE (7)F
+#TEILAUFGABE (7)
 SELECT hersteller, flugzeugTyp, SUM(B.anzahl) AS Sitzplätze
 FROM FlugzeugTyp f
          LEFT JOIN Buchungsklasse B on f.flugzeugTyp = B.FlugzeugTyp_idFlugzeugTyp
@@ -489,7 +489,7 @@ FROM Flugverbindung fv
          left JOIN FlugzeugTyp ft ON fv.FlugzeugTyp_idFlugzeugTyp = ft.flugzeugTyp
          left JOIN Buchungsklasse b ON ft.flugzeugTyp = b.FlugzeugTyp_idFlugzeugTyp
 GROUP BY flugNummer, startFlughafen, endFlughafen
- 	HAVING MIN(Preis) > 250
+# 	HAVING MIN(Preis) > 250
 ORDER BY startFlughafen, endFlughafen, flugNummer, Mindestpreis;
 
 
@@ -663,4 +663,84 @@ WHERE FHS1.beschreibung = 'München'
 
 
 /* ENDE Bearbeitung der Aufgaben ----------------------------------------*/
+
+
+/* BEGINN Bearbeitung der Aufgaben 4 ------------------------------------*/
+
+#TEILAUFGABE (01)
+CREATE TRIGGER loesche_maschine
+    AFTER UPDATE
+    ON Maschine
+    FOR EACH ROW
+    DELETE FROM Maschine_has_Merkmal MhM
+        WHERE MhM.Maschine_kennzeichen = OLD.kennzeichen;
+
+
+#TEILAUFGABE (02)
+CREATE TRIGGER erzeuge_flug_p_maschienentyp
+    AFTER UPDATE
+    ON Flug
+    FOR EACH ROW
+        IF NOT (SELECT FlugzeugTyp_idFlugzeugTyp
+                FROM Maschine M
+                WHERE M.kennzeichen = NEW.Maschine_kennzeichen)
+            = (SELECT FlugzeugTyp_idFlugzeugTyp
+                FROM Flugverbindung F
+                WHERE F.flugNummer = NEW.FlugVerbindung_flugNummer)
+        THEN
+            SIGNAL SQLSTATE '02000' SET MESSAGE_TEXT = 'Falsche Maschiene';
+        END IF;
+
+
+#TEILAUFGABE (03)
+# CREATE TRIGGER erzeuge_flug_z_plaetze
+#     AFTER INSERT
+#     ON Flug
+#     FOR EACH ROW
+#     UPDATE Flug
+#         SET NEW.-freie plätze- =
+
+
+#TEILAUFGABE (04)
+CREATE PROCEDURE gebe_verbindungen(
+    IN startFlughafen VARCHAR(3),
+    IN zielFlughafen VARCHAR(3),
+    IN flugdatum DATE
+)
+BEGIN
+    SELECT flugNummer, startZeit, endZeit
+        FROM Flug F
+            LEFT JOIN Flugverbindung FV on FV.flugNummer = F.FlugVerbindung_flugNummer
+    WHERE FV.startFlughafen = startFlughafen
+        AND FV.endFlughafen = zielFlughafen
+        AND F.flugDatum = flugDatum;
+END;
+
+
+#TEILAUIFGABE (05)
+DROP FUNCTION IF EXISTS gebe_flugdauer;
+SET GLOBAL log_bin_trust_function_creators = 1;
+DELIMITER //
+CREATE FUNCTION gebe_flugdauer(flugnummer INT) RETURNS INT
+BEGIN
+    DECLARE flugminuten INT;
+    SELECT MINUTE(TIMEDIFF(DATE_ADD(endZeit, INTERVAL FHE.Zeitzone * -1 HOUR),
+                           DATE_ADD(startZeit, INTERVAL FHS.Zeitzone * -1 HOUR)))
+               + 60 * HOUR(TIMEDIFF(DATE_ADD(endZeit, INTERVAL FHE.Zeitzone * -1 HOUR),
+                                    DATE_ADD(startZeit, INTERVAL FHS.Zeitzone * -1 HOUR)))
+    INTO flugminuten
+    FROM Flugverbindung f
+             LEFT JOIN Flughafen FHS ON f.startFlughafen = FHS.flughafenKennung
+             LEFT JOIN Flughafen FHE ON f.endFlughafen = FHE.flughafenKennung
+    WHERE f.flugNummer = flugnummer;
+
+    RETURN flugminuten;
+END//
+DELIMITER ;
+
+SELECT gebe_flugdauer(310);
+
+
+
+
 
