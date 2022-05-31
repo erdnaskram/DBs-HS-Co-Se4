@@ -41,9 +41,11 @@ CREATE TABLE Maschine_has_Merkmal
 (
     Maschine_kennzeichen VARCHAR(45),
     Merkmal_merkmalID    INT,
-    PRIMARY KEY (Maschine_kennzeichen, Merkmal_merkmalID),
-    FOREIGN KEY (Maschine_kennzeichen) REFERENCES Maschine (kennzeichen),
-    FOREIGN KEY (Merkmal_merkmalID) REFERENCES Merkmal (merkmalID)
+    CONSTRAINT fk_Maschine_has_Merkmal_kennzeichen
+        FOREIGN KEY (Maschine_kennzeichen)
+            REFERENCES Maschine (kennzeichen),
+    FOREIGN KEY (Merkmal_merkmalID) REFERENCES Merkmal (merkmalID),
+    PRIMARY KEY (Maschine_kennzeichen, Merkmal_merkmalID)
 );
 
 CREATE TABLE Buchungsklasse
@@ -318,46 +320,92 @@ INSERT INTO Maschine_has_Merkmal
 INSERT INTO Flug
     VALUES ('2022-07-22', 310, 'D-ABYZ');
 
+
 INSERT INTO Flug_has_Buchungsklasse
     VALUES ('2022-07-22', 310, 'Economy', 'A321', 42);
+# INSERT INTO Flug_has_Buchungsklasse
+#     VALUES('2022-07-23', 312, 'Economy', 'A321', 190);
 
 /* BEGINN Bearbeitung der Aufgaben 4 ------------------------------------*/
 
 #TEILAUFGABE (01)
-DROP TRIGGER IF EXISTS loesche_maschine;
-CREATE TRIGGER loesche_maschine
-    AFTER UPDATE
-    ON Maschine
-    FOR EACH ROW
-    DELETE
-    FROM Maschine_has_Merkmal MhM
-    WHERE MhM.Maschine_kennzeichen = OLD.kennzeichen;
+#alten Constraint löschen
+ALTER TABLE Maschine_has_Merkmal
+    DROP CONSTRAINT fk_Maschine_has_Merkmal_kennzeichen
+#neuer Constraint
+ALTER TABLE Maschine_has_Merkmal
+    ADD CONSTRAINT fk_Maschine_has_Merkmal_kennzeichen
+        FOREIGN KEY (Maschine_kennzeichen)
+            REFERENCES Maschine (kennzeichen)
+        ON DELETE CASCADE ;
+#Test (01)
+DELETE FROM Maschine
+    WHERE kennzeichen = 'D-EFST';
 
 
 #TEILAUFGABE (02)
-DROP TRIGGER IF EXISTS erzeuge_flug_p_maschienentyp;
-CREATE TRIGGER erzeuge_flug_p_maschienentyp
-    AFTER UPDATE
-    ON Flug
-    FOR EACH ROW
-    IF NOT (SELECT FlugzeugTyp_idFlugzeugTyp
+
+DROP TRIGGER IF EXISTS check_flug_insert;
+DROP TRIGGER IF EXISTS check_flug_update;
+DROP PROCEDURE IF EXISTS check_FlugzeugTyp;
+
+DELIMITER //
+CREATE TRIGGER check_flug_insert
+BEFORE INSERT
+ON flug
+FOR EACH ROW
+BEGIN
+	CALL check_FlugzeugTyp(NEW.Maschine_kennzeichen, NEW.Flugverbindung_Flugnummer);
+END//
+
+CREATE TRIGGER check_flug_update
+BEFORE UPDATE
+ON flug
+FOR EACH ROW
+BEGIN
+	CALL check_FlugzeugTyp(NEW.Maschine_kennzeichen, NEW.Flugverbindung_Flugnummer);
+END//
+
+CREATE PROCEDURE check_FlugzeugTyp (IN kennzeichen VARCHAR(20), IN flugnummer INT)
+BEGIN
+	IF NOT (SELECT FlugzeugTyp_idFlugzeugTyp
             FROM Maschine M
-            WHERE M.kennzeichen = NEW.Maschine_kennzeichen)
+            WHERE M.kennzeichen = kennzeichen)
         = (SELECT FlugzeugTyp_idFlugzeugTyp
            FROM Flugverbindung F
-           WHERE F.flugNummer = NEW.FlugVerbindung_flugNummer)
+           WHERE F.flugNummer = flugnummer)
     THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Falsche Maschiene, bitte wählen sie den korrekten MaschienenTyp';
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Falsche Maschine, bitte wählen Sie den korrekten MaschinenTyp';
     END IF;
+END//
+#Test (02)
+INSERT INTO Flug
+    VALUES ('2022-07-16', 312, 'D-BORD');
+UPDATE Flug
+    SET Maschine_kennzeichen = 'D-BORD'
+    WHERE Maschine_kennzeichen = 'D-ABYZ';
 
 
 #TEILAUFGABE (03)
-# CREATE TRIGGER erzeuge_flug_z_plaetze
-#     AFTER INSERT
-#     ON Flug
-#     FOR EACH ROW
-#     UPDATE Flug
-#         SET NEW.-freie plätze- =
+DROP TRIGGER IF EXISTS erzeuge_flug_z_plaetze;
+DELIMITER //
+CREATE TRIGGER erzeuge_flug_z_plaetze
+    AFTER INSERT
+    ON Flug
+    FOR EACH ROW
+BEGIN
+    INSERT INTO Flug_has_Buchungsklasse
+        SELECT NEW.flugDatum, NEW.FlugVerbindung_flugNummer,
+               B.buchungsklasse, M.FlugzeugTyp_idFlugzeugTyp,
+                B.anzahl
+            FROM Maschine M
+                JOIN Buchungsklasse B on M.FlugzeugTyp_idFlugzeugTyp = B.FlugzeugTyp_idFlugzeugTyp
+            WHERE M.kennzeichen = NEW.Maschine_kennzeichen;
+END //
+DELIMITER ;
+#Test (03)
+INSERT INTO Flug
+    VALUES ('2022-07-24', 312, 'D-ABYZ');
 
 
 #TEILAUFGABE (04)
